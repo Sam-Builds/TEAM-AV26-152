@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DisasterScope — Live Alert Dashboard</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; min-height: 100vh; }
+
+  header {
+    background: #161b22; border-bottom: 1px solid #30363d;
+    padding: 14px 24px; display: flex; align-items: center; gap: 12px;
+  }
+  header h1 { font-size: 1.3rem; font-weight: 700; color: #f0f6fc; }
+  .badge {
+    background: #238636; color: #fff; font-size: 0.7rem;
+    padding: 2px 8px; border-radius: 12px; font-weight: 600;
+  }
+  .badge.offline { background: #da3633; }
+  .spacer { flex: 1; }
+  header button {
+    background: #21262d; border: 1px solid #30363d; color: #e6edf3;
+    padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+    transition: background 0.15s, opacity 0.15s;
+  }
+  header button:hover { background: #30363d; }
+  header button:active { opacity: 0.7; }
+  header button.primary { background: #238636; border-color: #2ea043; color: #fff; }
+  header button.primary:hover { background: #2ea043; }
+  header button.danger { background: #da3633; border-color: #f85149; color: #fff; }
+  header button.danger:hover { background: #f85149; }
+  header button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    grid-template-rows: auto 1fr;
+    height: calc(100vh - 57px);
+  }
+
+  .stats-bar {
+    grid-column: 1 / -1; background: #161b22; border-bottom: 1px solid #30363d;
+    display: flex; overflow-x: auto;
+  }
+  .stat {
+    padding: 10px 24px; border-right: 1px solid #30363d;
+    min-width: 120px; text-align: center; flex-shrink: 0;
+  }
+  .stat .val { font-size: 1.6rem; font-weight: 700; color: #58a6ff; }
+  .stat .lbl { font-size: 0.7rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat.critical .val { color: #f85149; }
+  .stat.high .val     { color: #ff7b72; }
+  .stat.medium .val   { color: #e3b341; }
+  .stat.low .val      { color: #3fb950; }
+
+  .feed {
+    background: #0d1117; border-right: 1px solid #30363d;
+    overflow-y: auto; display: flex; flex-direction: column;
+  }
+  .feed-header {
+    padding: 12px 16px; background: #161b22; border-bottom: 1px solid #30363d;
+    font-size: 0.8rem; color: #8b949e;
+    display: flex; justify-content: space-between; align-items: center;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .feed-header select {
+    background: #21262d; border: 1px solid #30363d; color: #e6edf3;
+    padding: 3px 8px; border-radius: 4px; font-size: 0.75rem;
+  }
+
+  .alert-card {
+    padding: 12px 16px; border-bottom: 1px solid #21262d;
+    cursor: pointer; transition: background 0.15s;
+    animation: slideIn 0.3s ease;
+  }
+  .alert-card:hover { background: #161b22; }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .alert-card .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .alert-card .type { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+  .alert-card .text { font-size: 0.82rem; color: #c9d1d9; margin-top: 4px; line-height: 1.4; }
+  .alert-card .meta { font-size: 0.7rem; color: #6e7681; margin-top: 6px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .alert-card .loc  { color: #58a6ff; }
+
+  .sev-badge {
+    font-size: 0.65rem; font-weight: 700; padding: 2px 7px; border-radius: 10px;
+    text-transform: uppercase; white-space: nowrap;
+  }
+  .sev-CRITICAL { background: #f85149; color: #fff; }
+  .sev-HIGH     { background: #ff7b72; color: #0d1117; }
+  .sev-MEDIUM   { background: #e3b341; color: #0d1117; }
+  .sev-LOW      { background: #3fb950; color: #0d1117; }
+  .sev-NONE     { background: #30363d; color: #8b949e; }
+
+  #map { width: 100%; height: 100%; }
+
+  #detail {
+    display: none; position: fixed; right: 0; top: 57px; width: 380px;
+    height: calc(100vh - 57px); background: #161b22; border-left: 1px solid #30363d;
+    overflow-y: auto; z-index: 100; padding: 20px;
+  }
+  #detail h3 { font-size: 1rem; margin-bottom: 12px; }
+  #detail .close-btn {
+    float: right; cursor: pointer; color: #8b949e; font-size: 1.2rem;
+    background: none; border: none; padding: 0;
+  }
+  #detail .close-btn:hover { color: #e6edf3; }
+  #detail .field { margin-bottom: 10px; }
+  #detail .field label { font-size: 0.7rem; color: #8b949e; text-transform: uppercase; display: block; margin-bottom: 3px; }
+  #detail .field p { font-size: 0.85rem; color: #e6edf3; }
+  #detail .actions li { font-size: 0.82rem; color: #3fb950; margin: 4px 0 4px 16px; }
+  #detail .brief {
+    background: #0d1117; border-left: 3px solid #58a6ff;
+    padding: 10px 12px; font-size: 0.82rem; line-height: 1.5;
+    border-radius: 0 4px 4px 0;
+  }
+
+  #analyze-form {
+    position: fixed; bottom: 20px; left: 360px; right: 20px;
+    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+    padding: 12px 16px; display: flex; gap: 10px; z-index: 50;
+  }
+  #analyze-form input {
+    flex: 1; background: #0d1117; border: 1px solid #30363d; color: #e6edf3;
+    padding: 8px 12px; border-radius: 6px; font-size: 0.85rem;
+  }
+  #analyze-form input:focus { outline: none; border-color: #58a6ff; }
+  #analyze-form button {
+    background: #238636; border: none; color: #fff;
+    padding: 8px 18px; border-radius: 6px; cursor: pointer;
+    font-size: 0.85rem; font-weight: 600; transition: background 0.15s;
+  }
+  #analyze-form button:hover { background: #2ea043; }
+  #analyze-form button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: #238636; color: #fff; padding: 8px 20px; border-radius: 20px;
+    font-size: 0.82rem; z-index: 200; opacity: 0; transition: opacity 0.3s;
+    pointer-events: none; white-space: nowrap;
+  }
+  .toast.show  { opacity: 1; }
+  .toast.error { background: #da3633; }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <span style="font-size:1.4rem">🛰️</span>
+  <h1>DisasterScope</h1>
+  <span class="badge offline" id="conn-badge">Connecting…</span>
+  <div class="spacer"></div>
+  <button id="btn-demo"   class="primary" onclick="runDemo()">▶ Run Demo</button>
+  <button id="btn-start"  onclick="startStream()">⚡ Start Stream</button>
+  <button id="btn-stop"   class="danger" onclick="stopStream()">■ Stop Stream</button>
+  <button id="btn-clear"  onclick="doClearAlerts()">🗑 Clear</button>
+</header>
+
+<div class="layout">
+  <div class="stats-bar">
+    <div class="stat"><div class="val" id="s-total">0</div><div class="lbl">Analyzed</div></div>
+    <div class="stat critical"><div class="val" id="s-critical">0</div><div class="lbl">Critical</div></div>
+    <div class="stat high"><div class="val" id="s-high">0</div><div class="lbl">High</div></div>
+    <div class="stat medium"><div class="val" id="s-medium">0</div><div class="lbl">Medium</div></div>
+    <div class="stat low"><div class="val" id="s-low">0</div><div class="lbl">Low</div></div>
+    <div class="stat"><div class="val" id="s-trends">0</div><div class="lbl">Trends</div></div>
+    <div class="stat"><div class="val" id="s-subs">0</div><div class="lbl">Dashboards</div></div>
+  </div>
+
+  <div class="feed">
+    <div class="feed-header">
+      <span>Live Alerts</span>
+      <select id="sev-filter" onchange="applyFilter()">
+        <option value="">All severities</option>
+        <option value="CRITICAL">Critical</option>
+        <option value="HIGH">High</option>
+        <option value="MEDIUM">Medium</option>
+        <option value="LOW">Low</option>
+      </select>
+    </div>
+    <div id="alert-list"></div>
+  </div>
+
+  <div id="map"></div>
+</div>
+
+<!-- Detail side panel -->
+<div id="detail">
+  <button class="close-btn" onclick="closeDetail()">✕</button>
+  <h3 id="d-title">Alert Detail</h3>
+  <div id="d-body"></div>
+</div>
+
+<!-- Inline analyze bar -->
+<div id="analyze-form">
+  <input id="tweet-input" type="text" placeholder="Paste a tweet or post to analyze… (Enter to submit)" />
+  <button id="btn-analyze" onclick="analyzePost()">Analyze</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'http://localhost:8000';
+
+// Store alerts by index so onclick can reference them safely (no JSON-in-HTML)
+const alertStore = [];
+let sevFilter = '';
+let map, markers = [];
+
+const SEV_COLOR = {
+  CRITICAL: '#f85149',
+  HIGH:     '#ff7b72',
+  MEDIUM:   '#e3b341',
+  LOW:      '#3fb950',
+  NONE:     '#8b949e'
+};
+
+// ── Map ───────────────────────────────────────────────────────────────────────
+map = L.map('map', { center: [20, 78], zoom: 4 });
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap © CARTO', maxZoom: 19
+}).addTo(map);
+
+function addMapMarker(item) {
+  const locs = item.geocoded_locations
+    || item.insights?.geocoded_locations
+    || item.insights?.cluster_stats?.geocoded_locations
+    || [];
+  locs.forEach(loc => {
+    if (loc.lat == null || loc.lng == null) return;
+    const color = SEV_COLOR[item.severity] || '#8b949e';
+    const radius = item.severity === 'CRITICAL' ? 14
+                 : item.severity === 'HIGH'     ? 10 : 7;
+    const circle = L.circleMarker([loc.lat, loc.lng], {
+      radius, fillColor: color, color: '#fff',
+      weight: 1.5, opacity: 0.9, fillOpacity: 0.75
+    }).addTo(map);
+    circle.bindPopup(
+      `<b>${loc.name || ''}</b><br>` +
+      `<span style="color:${color}">${item.severity}</span> — ${item.disaster_type || ''}<br>` +
+      `<small>${(item.raw_text || '').slice(0, 100)}</small>`
+    );
+    markers.push(circle);
+  });
+}
+
+// ── SSE ───────────────────────────────────────────────────────────────────────
+let es;
+let _sseBackoff = 3000;
+function connectSSE() {
+  es = new EventSource(`${API}/stream/alerts`);
+  es.onopen = () => {
+    _sseBackoff = 3000;  // reset on success
+    document.getElementById('conn-badge').textContent = 'Live';
+    document.getElementById('conn-badge').className = 'badge';
+  };
+  es.onmessage = ev => {
+    try {
+      const item = JSON.parse(ev.data);
+      if (item.severity && item.severity !== 'NONE') {
+        prependItem(item);
+        addMapMarker(item);
+        if (['CRITICAL', 'HIGH'].includes(item.severity)) {
+          showToast(`🚨 ${item.severity}: ${item.disaster_type} — ${(item.locations || []).join(', ')}`);
+        }
+      }
+    } catch (_) {}
+  };
+  es.onerror = () => {
+    document.getElementById('conn-badge').textContent = 'Offline';
+    document.getElementById('conn-badge').className = 'badge offline';
+    es.close();
+    // exponential backoff up to 30s so console doesn't spam
+    _sseBackoff = Math.min(_sseBackoff * 2, 30000);
+    setTimeout(connectSSE, _sseBackoff);
+  };
+}
+connectSSE();
+
+// ── Feed ──────────────────────────────────────────────────────────────────────
+function prependItem(item) {
+  alertStore.unshift(item);
+  renderFeed();
+  refreshStats();
+}
+
+function renderFeed() {
+  const list = document.getElementById('alert-list');
+  const filtered = sevFilter
+    ? alertStore.filter(a => a.severity === sevFilter)
+    : alertStore;
+
+  list.innerHTML = filtered.slice(0, 100).map((a, i) => {
+    const idx = alertStore.indexOf(a);
+    const color = SEV_COLOR[a.severity] || '#8b949e';
+    const text  = (a.raw_text || '').slice(0, 120);
+    const locs  = (a.locations || []).slice(0, 2).join(', ') || 'location unknown';
+    const time  = a.created_at ? new Date(a.created_at).toLocaleTimeString() : '';
+    const conf  = Math.round((a.combined_confidence || 0) * 100);
+    return `<div class="alert-card" data-idx="${idx}">
+      <div class="top">
+        <span class="type" style="color:${color}">${a.disaster_type || 'unknown'}</span>
+        <span class="sev-badge sev-${a.severity}">${a.severity}</span>
+      </div>
+      <div class="text">${escHtml(text)}${(a.raw_text || '').length > 120 ? '…' : ''}</div>
+      <div class="meta">
+        <span class="loc">📍 ${escHtml(locs)}</span>
+        ${time ? `<span>🕐 ${time}</span>` : ''}
+        <span>📊 ${conf}%</span>
+        ${a.source_platform ? `<span>🌐 ${escHtml(a.source_platform)}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Attach click handlers after render (avoids JSON-in-HTML entirely)
+  list.querySelectorAll('.alert-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const idx = parseInt(card.dataset.idx, 10);
+      showDetail(alertStore[idx]);
+    });
+  });
+}
+
+function applyFilter() {
+  sevFilter = document.getElementById('sev-filter').value;
+  renderFeed();
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ── Detail panel ──────────────────────────────────────────────────────────────
+function showDetail(item) {
+  document.getElementById('d-title').innerHTML =
+    `<span class="sev-badge sev-${item.severity}">${item.severity}</span> ${escHtml(item.disaster_type || '')}`;
+
+  const locs     = (item.locations || []).join(', ') || '—';
+  const orgs     = (item.organizations || []).join(', ') || '—';
+  const keywords = (item.keywords || []).join(', ') || '—';
+  const brief    = item.insights?.situation_brief || '';
+  const actions  = (item.recommended_actions || []).map(a => `<li>${escHtml(a)}</li>`).join('');
+  const nlpConf  = Math.round((item.nlp_confidence || 0) * 100);
+  const visConf  = Math.round((item.vision_confidence || 0) * 100);
+  const combConf = Math.round((item.combined_confidence || 0) * 100);
+
+  document.getElementById('d-body').innerHTML = `
+    ${brief ? `<div class="field"><label>Situation Brief</label><div class="brief">${escHtml(brief)}</div></div>` : ''}
+    <div class="field"><label>Full Text</label><p>${escHtml(item.raw_text || '—')}</p></div>
+    <div class="field"><label>Locations</label><p style="color:#58a6ff">${escHtml(locs)}</p></div>
+    <div class="field"><label>Organizations</label><p>${escHtml(orgs)}</p></div>
+    <div class="field"><label>Keywords</label><p>${escHtml(keywords)}</p></div>
+    <div class="field"><label>Confidence</label><p>NLP: ${nlpConf}% | Vision: ${visConf}% | Combined: ${combConf}%</p></div>
+    <div class="field"><label>Source</label><p>${escHtml(item.source_platform || '—')}${item.author ? ' · ' + escHtml(item.author) : ''}</p></div>
+    <div class="field"><label>Time</label><p>${item.created_at ? new Date(item.created_at).toLocaleString() : '—'}</p></div>
+    ${actions ? `<div class="field"><label>Recommended Actions</label><ul class="actions">${actions}</ul></div>` : ''}
+    ${item.trend_id ? `<div class="field"><label>Trend ID</label><p style="color:#e3b341">${escHtml(item.trend_id)}</p></div>` : ''}
+  `;
+  document.getElementById('detail').style.display = 'block';
+}
+
+function closeDetail() {
+  document.getElementById('detail').style.display = 'none';
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+let _statsBackoff = 10000;
+async function refreshStats() {
+  try {
+    const [sRes, tRes, hRes] = await Promise.all([
+      fetch(`${API}/alerts/stats`,  { signal: AbortSignal.timeout(4000) }),
+      fetch(`${API}/trends`,        { signal: AbortSignal.timeout(4000) }),
+      fetch(`${API}/health`,        { signal: AbortSignal.timeout(4000) }),
+    ]);
+    const stats  = await sRes.json();
+    const trends = await tRes.json();
+    const health = await hRes.json();
+
+    document.getElementById('s-total').textContent    = stats.total_alerts || 0;
+    document.getElementById('s-critical').textContent = stats.by_severity?.CRITICAL || 0;
+    document.getElementById('s-high').textContent     = stats.by_severity?.HIGH || 0;
+    document.getElementById('s-medium').textContent   = stats.by_severity?.MEDIUM || 0;
+    document.getElementById('s-low').textContent      = stats.by_severity?.LOW || 0;
+    document.getElementById('s-trends').textContent   = trends.stats?.active_trends || 0;
+    document.getElementById('s-subs').textContent     = health.sse_subscribers || 0;
+    _statsBackoff = 10000;  // reset on success
+  } catch (_) {
+    // server not reachable — back off up to 60s to stop console spam
+    _statsBackoff = Math.min(_statsBackoff * 2, 60000);
+  }
+  setTimeout(refreshStats, _statsBackoff);
+}
+refreshStats();  // no setInterval — self-schedules with backoff
+
+// ── Load existing alerts on page load ─────────────────────────────────────────
+async function loadExisting() {
+  try {
+    const res  = await fetch(`${API}/alerts?min_severity=LOW&limit=50`, { signal: AbortSignal.timeout(4000) });
+    if (!res.ok) return;
+    const data = await res.json();
+    (data.alerts || []).reverse().forEach(item => {
+      alertStore.push(item);
+      addMapMarker(item);
+    });
+    renderFeed();
+  } catch (_) {}
+}
+loadExisting();
+
+// ── Analyze ───────────────────────────────────────────────────────────────────
+async function analyzePost() {
+  const input = document.getElementById('tweet-input');
+  const btn   = document.getElementById('btn-analyze');
+  const text  = input.value.trim();
+  if (!text) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Analyzing…';
+  try {
+    const res  = await fetch(`${API}/analyze`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ text, source_platform: 'dashboard' }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const item = await res.json();
+    prependItem(item);
+    addMapMarker(item);
+    input.value = '';
+    showToast(`Analyzed: ${item.severity} — ${item.disaster_type}`);
+  } catch (e) {
+    showToast('Analysis failed — is the server running?', true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Analyze';
+  }
+}
+
+document.getElementById('tweet-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') analyzePost();
+});
+
+// ── Header buttons ────────────────────────────────────────────────────────────
+async function runDemo() {
+  const btn = document.getElementById('btn-demo');
+  btn.disabled = true;
+  btn.textContent = 'Running…';
+  try {
+    const res = await fetch(`${API}/demo`, { method: 'POST' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    showToast('Demo started — watch alerts stream in!');
+  } catch (e) {
+    showToast('Could not start demo — is the server running?', true);
+  } finally {
+    setTimeout(() => { btn.disabled = false; btn.textContent = '▶ Run Demo'; }, 3000);
+  }
+}
+
+async function startStream() {
+  const btn = document.getElementById('btn-start');
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/stream/start`, { method: 'POST' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    showToast('Real ingestion stream started');
+  } catch (e) {
+    showToast('Could not start stream', true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function stopStream() {
+  const btn = document.getElementById('btn-stop');
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/stream/stop`, { method: 'POST' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    showToast('Stream stopped');
+  } catch (e) {
+    showToast('Could not stop stream', true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function doClearAlerts() {
+  if (!window.confirm('Clear all alerts from the dashboard and database?')) return;
+  const btn = document.getElementById('btn-clear');
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/alerts`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    alertStore.length = 0;
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
+    renderFeed();
+    refreshStats();
+    showToast('All alerts cleared');
+  } catch (e) {
+    showToast('Clear failed', true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = 'toast'; }, 3500);
+}
+</script>
+</body>
+</html>
