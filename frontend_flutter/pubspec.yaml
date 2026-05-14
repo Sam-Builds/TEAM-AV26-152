@@ -40,6 +40,8 @@ dependencies:
   http: ^1.2.1                 # For backend API pings
   flutter_local_notifications: ^17.0.0 # For offline alerts
   flutter_map_location_marker: ^8.0.0 # For the pulsing blue user dot
+  go_router: 17.2.3
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:
