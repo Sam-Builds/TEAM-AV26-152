@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "891431822056",
+    "project_id": "hackathon-a7f37",
+    "storage_bucket": "hackathon-a7f37.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:891431822056:android:11ea568d69be068faa5f5d",
+        "android_client_info": {
+          "package_name": "com.company.samstack"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDdy8ruvRO2COzC1vRtvXpSfBYIbl1qZVM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:891431822056:android:848715ab92740ec5aa5f5d",
+        "android_client_info": {
+          "package_name": "com.think.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDdy8ruvRO2COzC1vRtvXpSfBYIbl1qZVM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

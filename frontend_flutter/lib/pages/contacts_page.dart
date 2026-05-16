@@ -22,27 +22,27 @@ class _ContactsPageState extends State<ContactsPage> {
 
     final List<Map<String, String>> authorities = [
       {
-        'name': 'Emergency Services',
-        'phone': '+234-1-2345-6789',
-        'email': 'emergency@govt.ng',
+        'name': 'National Emergency Helpline',
+        'phone': '112',
+        'email': 'support@india.gov.in',
         'type': 'Emergency'
       },
       {
-        'name': 'National Disaster Management Agency',
-        'phone': '+234-1-4567-8901',
-        'email': 'info@ndma.gov.ng',
+        'name': 'National Disaster Management Authority',
+        'phone': '1078',
+        'email': 'controlroom@ndma.gov.in',
         'type': 'Disaster Management'
       },
       {
-        'name': 'Red Cross Society',
-        'phone': '+234-1-5678-9012',
-        'email': 'info@redcross.ng',
+        'name': 'Indian Red Cross Society',
+        'phone': '011-2371 6441',
+        'email': 'info@indianredcross.org',
         'type': 'Relief'
       },
       {
-        'name': 'Fire Service',
-        'phone': '+234-1-6789-0123',
-        'email': 'info@fireng.gov.ng',
+        'name': 'Fire and Rescue Services',
+        'phone': '101',
+        'email': 'fire@nic.in',
         'type': 'Emergency'
       },
     ];

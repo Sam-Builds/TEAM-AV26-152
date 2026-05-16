@@ -7,14 +7,17 @@ import 'pages/contacts_page.dart';
 import 'pages/search_page.dart';
 import 'pages/settings_page.dart';
 import 'services/session_service.dart';
+import 'services/fcm_service.dart';
 
-// App color palette
-const Color _bgColor = Color(0xFFEFECEA); // #EFECEA
-const Color _primaryColor = Color(0xFF334854); // #334854
-const Color _accentColor = Color(0xFFE04462); // #E04462
-const Color _warningColor = Color(0xFFF9C535); // #F9C535
 
-void main() {
+const Color _bgColor = Color(0xFFEFECEA);
+const Color _primaryColor = Color(0xFF334854);
+const Color _accentColor = Color(0xFFE04462);
+const Color _warningColor = Color(0xFFF9C535);
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await configureFcm();
   runApp(const DisasterApp());
 }
 

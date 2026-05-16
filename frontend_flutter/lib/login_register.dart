@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 
+import 'services/fcm_service.dart';
 import 'services/session_service.dart';
 
 const String _backendBaseUrl = 'https://api.samstack.site';
@@ -14,15 +15,15 @@ String _extractMessage(http.Response response, String fallback) {
     final decoded = jsonDecode(response.body);
     if (decoded is Map<String, dynamic>) {
       if (decoded['message'] is String) return decoded['message'] as String;
-      // try common alternatives
+
       if (decoded['error'] is String) return decoded['error'] as String;
       if (decoded['detail'] is String) return decoded['detail'] as String;
       return decoded.toString();
     }
   } catch (_) {
-    // fallthrough
+
   }
-  // fallback to raw body (trimmed) or status
+
   final body = response.body.trim();
   if (body.isNotEmpty) return '(${response.statusCode}) $body';
   return '(${response.statusCode}) $fallback';
@@ -73,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (response.statusCode == 200) {
         _showSnack(context, 'Login successful');
-        // Save session
+
         final userData = jsonDecode(response.body);
         if (userData['data'] != null) {
           await SessionService.saveSession(
@@ -81,6 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
             username: userData['data']['username'] ?? '',
             email: userData['data']['email'] ?? '',
           );
+          await syncCurrentSessionFcmToken();
         }
         if (mounted) {
           context.go('/home');
@@ -280,15 +282,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _isCreatingAccount = true);
     try {
+      debugPrint('Verifying code for phone: $phone');
       final verifyResponse = await http.post(
         Uri.parse('$_backendBaseUrl/auth/verify-code'),
         headers: const {'Content-Type': 'application/json'},
         body: jsonEncode({'phone': phone, 'code': code}),
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (!mounted) {
         return;
       }
+
+      debugPrint('Verify response status: ${verifyResponse.statusCode}, body: ${verifyResponse.body}');
 
       if (verifyResponse.statusCode != 200) {
         _showSnack(context, _extractMessage(verifyResponse, 'Invalid verification code'));
@@ -304,7 +309,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'phone': phone,
           'password': pass,
         }),
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (!mounted) {
         return;
@@ -312,7 +317,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (registerResponse.statusCode == 201 || registerResponse.statusCode == 200) {
         _showSnack(context, 'Registration complete');
-        // Save session
+
         final userData = jsonDecode(registerResponse.body);
         if (userData['data'] != null) {
           await SessionService.saveSession(
@@ -320,6 +325,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             username: userData['data']['username'] ?? '',
             email: userData['data']['email'] ?? '',
           );
+          await syncCurrentSessionFcmToken();
         }
         if (mounted) {
           context.go('/home');
@@ -327,9 +333,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       } else {
         _showSnack(context, _extractMessage(registerResponse, 'Registration failed'));
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Registration error: $e');
       if (mounted) {
-        _showSnack(context, 'Network error. Please try again.');
+        _showSnack(context, 'Error: ${e.toString()}');
       }
     } finally {
       if (mounted) {
