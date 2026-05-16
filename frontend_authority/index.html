@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Disaster Management Authority Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>Disaster Management Authority</h1>
+                <p class="subtitle">Emergency Response Coordination System</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-grid">
+                <div class="content-left">
+                    <!-- Controls Section -->
+                    <section class="controls-section">
+                        <div class="control-group">
+                            <label for="apiEndpoint">API Endpoint:</label>
+                            <input 
+                                type="text" 
+                                id="apiEndpoint" 
+                                placeholder="https://api.samstack.site" 
+                                value="https://api.samstack.site"
+                            >
+                            <button id="refreshBtn" class="btn btn-primary">Refresh Disasters</button>
+                            <button id="notificationsBtn" class="btn btn-primary" title="Enable push notifications">Enable Notifications</button>
+                        </div>
+                        <div class="status" id="status">Ready</div>
+                    </section>
+
+                    <!-- Disasters List Section -->
+                    <section class="disasters-section">
+                        <h2>Active Disasters</h2>
+                        <div class="disasters-grid" id="disastersList">
+                            <div class="loading">Loading disasters...</div>
+                        </div>
+                    </section>
+
+                    <!-- Statistics -->
+                    <section class="stats-section">
+                        <div class="stat-card">
+                            <h3 id="totalDisasters">0</h3>
+                            <p>Total Disasters</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3 id="criticalCount">0</h3>
+                            <p>Critical</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3 id="moderateCount">0</h3>
+                            <p>Moderate</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3 id="lowCount">0</h3>
+                            <p>Low Severity</p>
+                        </div>
+                    </section>
+                </div>
+
+                <aside class="sidebar" id="liveSidebar">
+                    <h3>Live Feed</h3>
+                    <div class="live-section">
+                        <h4>Stats</h4>
+                        <ul id="liveStatsList" class="live-list">
+                            <li class="live-empty">Waiting for stats...</li>
+                        </ul>
+                    </div>
+                    <div class="live-section">
+                        <h4>Trends</h4>
+                        <ul id="liveTrendsList" class="live-list">
+                            <li class="live-empty">Waiting for trends...</li>
+                        </ul>
+                    </div>
+                </aside>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for Alert Notifications -->
+    <div id="alertModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Broadcast Emergency Notification</h2>
+            <div class="modal-body">
+                <div class="modal-info">
+                    <p><strong>Disaster Type:</strong> <span id="modalDisasterType"></span></p>
+                    <p><strong>Location:</strong> <span id="modalLocation"></span></p>
+                    <p><strong>Status:</strong> <span id="modalStatus"></span></p>
+                    <p><strong>Recipients:</strong> All registered authorities and emergency services</p>
+                </div>
+                
+                <div class="alert-preview">
+                    <h3>Notification that will be sent via Firebase:</h3>
+                    <div class="alert-box">
+                        <p><strong id="alertTitle">Emergency Alert</strong></p>
+                        <p id="alertBody">Emergency notification</p>
+                        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e8e8e8; font-size: 12px; color: #666;">
+                            <p><strong>Payload:</strong></p>
+                            <pre id="payloadPreview" style="background: #f5f5f5; padding: 8px; border-radius: 3px; margin: 8px 0; overflow-x: auto;"></pre>
+                        </div>
+                    </div>
+                </div>
+                
+                <button id="confirmAlertBtn" class="btn btn-danger">Broadcast to All Authorities</button>
+                <button id="cancelAlertBtn" class="btn btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <script src="firebase-config.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

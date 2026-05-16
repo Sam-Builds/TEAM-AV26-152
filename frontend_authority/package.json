@@ -1,0 +1,15 @@
+{
+  "name": "frontend_authority",
+  "version": "1.0.0",
+  "description": "A modern, responsive web application for managing and responding to disaster alerts. Designed for emergency authorities like fireforce and police stations.",
+  "main": "script.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "firebase": "^12.13.0"
+  }
+}
